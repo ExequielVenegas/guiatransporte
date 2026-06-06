@@ -1,5 +1,6 @@
 package com.duoc.guiatransporte.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
@@ -18,6 +19,7 @@ public class Transportista {
     private String telefono;
     private String email;
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "transportista", cascade = CascadeType.ALL)
     private List<Despacho> despachos;
 }

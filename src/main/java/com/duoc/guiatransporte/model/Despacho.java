@@ -1,5 +1,6 @@
 package com.duoc.guiatransporte.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -14,15 +15,14 @@ public class Despacho {
 
     private String fechaEmision;
     private String estado;
-
     private String descripcionCarga;
     private Integer cantidad;
     private Double peso;
-
     private String direccionOrigen;
     private String destinatario;
     private String direccionDestino;
 
+    @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "transportista_id")
     private Transportista transportista;
