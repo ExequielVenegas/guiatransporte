@@ -37,7 +37,7 @@ public class DespachoService {
         String rutaEfs = guiaPdfService.generarPdfEnEfs(guardado);
 
         String nombreArchivo = guiaPdfService.getNombreArchivo(guardado.getId());
-        String nombreTransportista = guardado.getTransportista().getNombre(); // ✅ ya no es null
+        String nombreTransportista = guardado.getTransportista().getNombre();
         String claveS3 = s3Service.subirDesdeEfs(
                 rutaEfs,
                 guardado.getFechaEmision(),
