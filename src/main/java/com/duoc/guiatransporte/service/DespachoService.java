@@ -3,6 +3,7 @@ package com.duoc.guiatransporte.service;
 
 import com.duoc.guiatransporte.model.Despacho;
 import com.duoc.guiatransporte.model.GuiaDespacho;
+import com.duoc.guiatransporte.model.Transportista;
 import com.duoc.guiatransporte.repository.DespachoRepository;
 import com.duoc.guiatransporte.repository.GuiaDespachoRepository;
 import com.duoc.guiatransporte.repository.TransportistaRepository;
@@ -23,15 +24,20 @@ public class DespachoService {
 
     public Despacho crear(Despacho despacho) throws Exception {
 
-        transportistaRepository.findById(despacho.getTransportista().getId())
+
+        Transportista transportistaCompleto = transportistaRepository
+                .findById(despacho.getTransportista().getId())
                 .orElseThrow(() -> new RuntimeException("Transportista no encontrado"));
+
+
+        despacho.setTransportista(transportistaCompleto);
 
         Despacho guardado = despachoRepository.save(despacho);
 
         String rutaEfs = guiaPdfService.generarPdfEnEfs(guardado);
 
         String nombreArchivo = guiaPdfService.getNombreArchivo(guardado.getId());
-        String nombreTransportista = guardado.getTransportista().getNombre();
+        String nombreTransportista = guardado.getTransportista().getNombre(); // ✅ ya no es null
         String claveS3 = s3Service.subirDesdeEfs(
                 rutaEfs,
                 guardado.getFechaEmision(),
