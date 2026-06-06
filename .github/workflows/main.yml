@@ -1,0 +1,90 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+      # Paso 1: Descargar el código del repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Paso 2: Autenticar en DockerHub
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Paso 3: Reconstruir el wallet de Oracle desde el secret
+      # (el wallet no se sube a GitHub por seguridad)
+      - name: Reconstruir Oracle Wallet
+        run: |
+          mkdir -p src/main/resources/wallet
+          echo "${{ secrets.ORACLE_WALLET_BASE64 }}" | base64 --decode > wallet.zip
+          unzip wallet.zip -d src/main/resources/wallet/
+
+      # Paso 4: Construir la imagen Docker
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/sistema-inscripcion:latest .
+
+      # Paso 5: Subir imagen a DockerHub
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/sistema-inscripcion:latest
+
+      # Paso 6: Configurar credenciales AWS
+      # Necesarias para que el pipeline pueda hablar con AWS
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      # Paso 7: Agregar la llave SSH para conectarse a la EC2
+      - name: Add SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      # Paso 8: Conectarse a la EC2 y desplegar el contenedor
+      # Aquí ocurre el despliegue real:
+      # - Se autentica en DockerHub desde la EC2
+      # - Descarga la imagen nueva
+      # - Para el contenedor anterior
+      # - Inicia el nuevo con EFS montado y todas las variables
+      - name: SSH commands to deploy
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.USER_SERVER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/sistema-inscripcion:latest
+
+            docker stop sistema-inscripcion || true && docker rm sistema-inscripcion || true
+
+            docker run -d --name sistema-inscripcion -p 8080:8080 \
+              -v /mnt/efs:/app/efs \
+              -e SPRING_PROFILES_ACTIVE=prod \
+              -e DB_URL="${{ secrets.DB_URL }}" \
+              -e DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e WALLET_PATH="/app/wallet" \
+              -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -e AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}" \
+              -e S3_BUCKET_NAME="${{ secrets.S3_BUCKET_NAME }}" \
+              -e EFS_PATH="/app/efs" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/sistema-inscripcion:latest
+          EOF
