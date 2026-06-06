@@ -17,8 +17,6 @@ public class GuiaDespacho {
     @JoinColumn(name = "despacho_id")
     private Despacho despacho;
 
-    // Clave donde quedó el PDF en S3
-    // Ej: 20241201/TransportesXYZ/guia_1.pdf
     private String claveS3;
 
     private LocalDateTime fechaCreacion;
