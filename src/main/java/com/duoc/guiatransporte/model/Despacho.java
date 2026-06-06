@@ -27,6 +27,6 @@ public class Despacho {
     @JoinColumn(name = "transportista_id")
     private Transportista transportista;
 
-    @OneToOne(mappedBy = "despacho", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "despacho", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private GuiaDespacho guia;
 }
